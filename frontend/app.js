@@ -18,7 +18,7 @@ const SAMPLES = [
 ];
 
 const $ = (id) => document.getElementById(id);
-const state = { recent: [], busy: false, raw: null, rawOpen: false, defanged: false };
+const state = { recent: [], busy: false, defanged: false };
 
 /* ---------- tiny DOM helpers (no innerHTML) ---------- */
 
@@ -279,8 +279,6 @@ function renderSource(s) {
 }
 
 function renderDone(r) {
-  state.raw = r;
-
   const slot = $("tag-slot");
   if (slot) {
     slot.replaceChildren();
@@ -363,29 +361,6 @@ function renderDone(r) {
     results.append(sec);
   }
 
-  const rawSec = el("section");
-  const toggle = el("button", "raw-toggle");
-  toggle.type = "button";
-  const lbl = el("span", "lbl");
-  const caret = el("span", null, "▶");
-  lbl.append(caret, el("span", null, "Raw normalized JSON"));
-  const hint = el("span", "hint", "Expand for ticket paste");
-  toggle.append(lbl, hint);
-  const wrap = el("div", "raw-wrap");
-  wrap.hidden = true;
-  const actions = el("div", "raw-actions");
-  const copyRaw = el("button", "mini-btn", "Copy JSON");
-  copyRaw.type = "button";
-  copyRaw.addEventListener("click", () => copy(JSON.stringify(r, null, 2), "JSON"));
-  actions.append(copyRaw);
-  wrap.append(actions, el("pre", null, JSON.stringify(r, null, 2)));
-  toggle.addEventListener("click", () => {
-    wrap.hidden = !wrap.hidden;
-    caret.textContent = wrap.hidden ? "▶" : "▼";
-    hint.textContent = wrap.hidden ? "Expand for ticket paste" : "Collapse";
-  });
-  rawSec.append(toggle, wrap);
-  results.append(rawSec);
 }
 
 /* ---------- SSE over fetch (keeps the IOC out of the URL and logs) ---------- */
