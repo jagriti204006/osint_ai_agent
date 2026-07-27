@@ -365,66 +365,90 @@ function renderDone(r) {
 
 /* ---------- SSE over fetch (keeps the IOC out of the URL and logs) ---------- */
 
+function busyNotice() {
+  toast("A lookup is already running — wait for it to finish.", true);
+}
+
 async function run(value, type) {
-  if (state.busy) return;
+  if (state.busy) { busyNotice(); return; }
   state.busy = true;
   $("find-btn").disabled = true;
-  $("error-box").hidden = true;
+  clearError();
 
-  let resp;
   try {
-    resp = await fetch("/api/lookup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ioc: value, type: type || "auto" }),
-    });
-  } catch (err) {
-    showError("Cannot reach the backend. Is the server running on port 8000?");
-    state.busy = false;
-    $("find-btn").disabled = false;
-    return;
-  }
-
-  if (!resp.ok || !resp.body) {
-    showError("Backend returned HTTP " + resp.status + ".");
-    state.busy = false;
-    $("find-btn").disabled = false;
-    return;
-  }
-
-  addRecent(value);
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value: chunk } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(chunk, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() || "";
-    for (const part of parts) {
-      let event = "message";
-      const dataLines = [];
-      part.split("\n").forEach((line) => {
-        if (line.startsWith("event: ")) event = line.slice(7).trim();
-        else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
+    let resp;
+    try {
+      resp = await fetch("/api/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ioc: value, type: type || "auto" }),
       });
-      if (!dataLines.length) continue;
-      let payload;
-      try { payload = JSON.parse(dataLines.join("\n")); } catch { continue; }
-      if (event === "start") renderStart(payload);
-      else if (event === "source") renderSource(payload);
-      else if (event === "done") renderDone(payload);
-      else if (event === "error") showError(payload.message);
+    } catch {
+      showError("Cannot reach the backend. Is the server running on port 8000?");
+      return;
     }
-  }
 
-  state.busy = false;
-  $("find-btn").disabled = false;
+    if (!resp.ok || !resp.body) {
+      showError("Backend returned HTTP " + resp.status + ".");
+      return;
+    }
+
+    addRecent(value);
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(chunk, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+      for (const part of parts) {
+        let event = "message";
+        const dataLines = [];
+        part.split("\n").forEach((line) => {
+          if (line.startsWith("event: ")) event = line.slice(7).trim();
+          else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
+        });
+        if (!dataLines.length) continue;
+        let payload;
+        try { payload = JSON.parse(dataLines.join("\n")); } catch { continue; }
+        if (event === "start") renderStart(payload);
+        else if (event === "source") renderSource(payload);
+        else if (event === "done") renderDone(payload);
+        else if (event === "error") showError(payload.message);
+      }
+    }
+  } finally {
+    // Must run even if rendering throws, or the UI locks out every later
+    // search behind a stuck busy flag.
+    state.busy = false;
+    $("find-btn").disabled = false;
+  }
+}
+
+/* Clear the result area and fall back to the empty state.
+ * A rejected input must not leave the previous lookup on screen, or the error
+ * reads as though it belongs to that result. */
+function clearResults() {
+  const results = $("results");
+  results.replaceChildren();
+  results.hidden = true;
+  $("empty-state").hidden = false;
+  cards.clear();
+}
+
+/* Hide the error AND drop its text. Leaving stale text in a hidden box means
+ * any later reveal shows a message about a search already moved on from. */
+function clearError() {
+  const box = $("error-box");
+  box.replaceChildren();
+  box.hidden = true;
 }
 
 function showError(msg) {
+  clearResults();
   const box = $("error-box");
   box.replaceChildren(el("span", null, msg));
   box.hidden = false;
@@ -473,6 +497,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const input = $("ioc-input");
     const value = input.value.trim();
     if (!value) { showError("Enter an indicator to look up."); return; }
+    // Check before clearing the input: a swallowed click that also wipes what
+    // you typed is the worst of both.
+    if (state.busy) { busyNotice(); return; }
     const type = $("ioc-type").value;
     input.value = "";                    // cleared, per spec
     $("infer-note").hidden = true;
