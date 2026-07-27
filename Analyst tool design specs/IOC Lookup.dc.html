@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IOC Reputation Lookup</title>
+<style>
+@font-face { font-family: "Space Grotesk"; src: url("SpaceGrotesk-VariableFont_wght.ttf") format("truetype-variations"); font-weight: 300 700; font-display: swap; }
+html, body { margin: 0; padding: 0; background: #0A0E17; }
+body { background-image: radial-gradient(1100px 780px at 50% 8%, #16233D 0%, rgba(22,35,61,0) 62%), radial-gradient(900px 700px at 8% 92%, #0F1B33 0%, rgba(15,27,51,0) 60%), radial-gradient(820px 640px at 96% 74%, #101A2E 0%, rgba(16,26,46,0) 58%), linear-gradient(178deg, #0B1120 0%, #0A0E17 55%, #080C14 100%); background-attachment: fixed; }
+* { box-sizing: border-box; }
+a { color: #8AA6D6; text-decoration: none; }
+a:hover { color: #B9CCEC; text-decoration: underline; }
+::placeholder { color: #64748B; opacity: 1; }
+::selection { background: rgba(201,162,39,0.28); }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid #7FA3E0; outline-offset: 2px; }
+@keyframes radarSweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes radarBlip { 0% { opacity: 1; r: 5; } 9% { opacity: 0.28; r: 3; } 100% { opacity: 0.28; r: 3; } }
+@keyframes iocShimmer { 0% { background-position: -220px 0; } 100% { background-position: 320px 0; } }
+@keyframes contactDot { 0% { opacity: 0; } 5% { opacity: 1; } 55% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes contactRing { 0% { opacity: 0.9; r: 4; } 70% { opacity: 0; r: 34; } 100% { opacity: 0; r: 34; } }
+@media (prefers-reduced-motion: reduce) {
+  #radar-sweep { animation: none !important; opacity: 0 !important; }
+  #radar circle[data-blip] { animation: none !important; opacity: 0.3 !important; }
+  #radar-contacts { display: none !important; }
+  .shimmer { animation: none !important; }
+}
+</style>
+</helmet>
+
+<div style="position: relative; min-height: 100vh; color: #E6EAF2; font-family: 'Space Grotesk', system-ui, sans-serif; overflow-x: hidden;">
+
+  <div aria-hidden="true" style="position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;">
+    <svg id="radar" viewBox="0 0 1000 1000" style="position: absolute; left: 50%; top: 42%; width: 1500px; height: 1500px; transform: translate(-50%, -50%); opacity: 0.085;">
+      <defs>
+        <radialGradient id="sweepGrad" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stop-color="#C9A227" stop-opacity="0.9" />
+          <stop offset="55%" stop-color="#C9A227" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="#C9A227" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <g stroke="#C9A227" fill="none" stroke-width="1.4">
+        <circle cx="500" cy="500" r="120" />
+        <circle cx="500" cy="500" r="230" />
+        <circle cx="500" cy="500" r="340" />
+        <circle cx="500" cy="500" r="450" />
+        <circle cx="500" cy="500" r="120" stroke-dasharray="3 9" />
+      </g>
+      <g stroke="#C9A227" stroke-width="2" opacity="0.6">
+        <line x1="500" y1="50" x2="500" y2="76" />
+        <line x1="950" y1="500" x2="924" y2="500" />
+        <line x1="500" y1="950" x2="500" y2="924" />
+        <line x1="50" y1="500" x2="76" y2="500" />
+        <line x1="818" y1="182" x2="800" y2="200" />
+        <line x1="818" y1="818" x2="800" y2="800" />
+        <line x1="182" y1="818" x2="200" y2="800" />
+        <line x1="182" y1="182" x2="200" y2="200" />
+      </g>
+      <g stroke="#C9A227" fill="none" stroke-width="1" opacity="0.5" stroke-dasharray="2 14">
+        <circle cx="500" cy="500" r="500" />
+        <circle cx="500" cy="500" r="285" />
+        <circle cx="500" cy="500" r="395" />
+      </g>
+      <g stroke="#C9A227" stroke-width="1" opacity="0.75">
+        <line x1="50" y1="500" x2="950" y2="500" />
+        <line x1="500" y1="50" x2="500" y2="950" />
+        <line x1="182" y1="182" x2="818" y2="818" />
+        <line x1="818" y1="182" x2="182" y2="818" />
+        <line x1="275" y1="110" x2="725" y2="890" />
+        <line x1="725" y1="110" x2="275" y2="890" />
+        <line x1="110" y1="275" x2="890" y2="725" />
+        <line x1="110" y1="725" x2="890" y2="275" />
+      </g>
+      <g id="radar-sweep" style="transform-origin: 500px 500px; animation: radarSweep 7.5s linear infinite;">
+        <path d="M500,500 L500,50 A450,450 0 0 1 862.4,318.6 Z" fill="url(#sweepGrad)" />
+        <line x1="500" y1="500" x2="500" y2="50" stroke="#C9A227" stroke-width="2" opacity="0.9" />
+      </g>
+      <g fill="#C9A227">
+        <circle data-blip="1" cx="626" cy="320" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 0.73s infinite;" />
+        <circle data-blip="1" cx="857" cy="630" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 2.29s infinite;" />
+        <circle data-blip="1" cx="548" cy="632" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 3.33s infinite;" />
+        <circle data-blip="1" cx="253" cy="852" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 4.48s infinite;" />
+        <circle data-blip="1" cx="218" cy="397" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 6.04s infinite;" />
+        <circle data-blip="1" cx="378" cy="355" r="3" opacity="0.28" style="animation: radarBlip 7.5s linear 6.67s infinite;" />
+      </g>
+    </svg>
+    <svg id="radar-contacts" viewBox="0 0 1000 1000" style="position: absolute; left: 50%; top: 42%; width: 1500px; height: 1500px; transform: translate(-50%, -50%); opacity: 0.5;">
+      {{ contact }}
+    </svg>
+  </div>
+
+  <div style="position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 34px 28px 96px;">
+
+    <header style="display: flex; align-items: center; gap: 14px; padding-bottom: 22px; border-bottom: 1px solid rgba(148,163,184,0.14); margin-bottom: 26px;">
+      <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 27px; height: 27px; flex: 0 0 auto; display: block; fill: none; stroke: #F2555A; stroke-width: 2.9; stroke-linecap: round;">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <line x1="15.4" y1="15.4" x2="20.5" y2="20.5" />
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <h1 style="margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; color: #E6EAF2;">IOC Reputation Lookup</h1>
+        <p style="margin: 0; font-size: 12.5px; color: #94A3B8; letter-spacing: 0.01em;">Multi-source indicator triage · aggregated verdicts for hashes, IPs, domains, URLs, senders and processes</p>
+      </div>
+    </header>
+
+    <form onSubmit="{{ onSubmit }}" style="display: flex; gap: 10px; align-items: stretch;">
+      <div style="position: relative; flex: 1 1 auto; min-width: 0;">
+        <input type="text" value="{{ q }}" onChange="{{ onInput }}" placeholder="{{ placeholder }}" aria-label="Indicator of compromise" spellcheck="false" autocomplete="off" style="width: 100%; height: 46px; background: #0F1522; border: 1px solid rgba(148,163,184,0.22); border-radius: 8px; color: #E6EAF2; font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 14px; letter-spacing: 0.04em; padding: 0 14px;" />
+      </div>
+      <div style="position: relative; flex: 0 0 auto;">
+        <select value="{{ type }}" onChange="{{ onType }}" aria-label="Indicator type" style="height: 46px; background: #0F1522; border: 1px solid rgba(148,163,184,0.22); border-radius: 8px; color: #E6EAF2; font-family: 'Space Grotesk', sans-serif; font-size: 13px; padding: 0 34px 0 13px; appearance: none; cursor: pointer;">
+          <option value="auto">Auto-detect</option>
+          <option value="hash">Hash</option>
+          <option value="file">File</option>
+          <option value="domain">Domain</option>
+          <option value="ip">IP Address</option>
+          <option value="url">URL</option>
+          <option value="email">Email Sender</option>
+          <option value="process">Process Name</option>
+        </select>
+        <span aria-hidden="true" style="position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 10px; pointer-events: none;">▼</span>
+      </div>
+      <button type="submit" style="flex: 0 0 auto; height: 46px; padding: 0 26px; background: #1D2B45; border: 1px solid rgba(127,163,224,0.42); border-radius: 8px; color: #DCE6F8; font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 600; letter-spacing: 0.03em; cursor: pointer; transition: background 120ms ease, border-color 120ms ease;" style-hover="background: #26385A; border-color: rgba(127,163,224,0.7); color: #F2F6FF;">Find</button>
+    </form>
+
+    <sc-if value="{{ inferNote }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 8px; font-size: 11.5px; color: #94A3B8; letter-spacing: 0.02em;">{{ inferNote }}</div>
+    </sc-if>
+
+    <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}">
+      <div role="alert" style="margin-top: 12px; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid rgba(242,85,90,0.45); background: rgba(242,85,90,0.10); border-radius: 8px;">
+        <span aria-hidden="true" style="color: #FF7A7F; font-size: 13px; font-weight: 700;">!</span>
+        <span style="font-size: 13px; color: #FFB8BA; letter-spacing: 0.01em;">{{ error }}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasRecent }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5;">Recent</span>
+        <sc-for list="{{ recent }}" as="r" hint-placeholder-count="3">
+          <button type="button" onClick="{{ r.onClick }}" title="Search again" style="background: rgba(148,163,184,0.07); border: 1px solid rgba(148,163,184,0.18); border-radius: 999px; padding: 4px 11px; color: #B6C2D4; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; letter-spacing: 0.03em; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" style-hover="background: rgba(148,163,184,0.14); color: #E6EAF2; border-color: rgba(148,163,184,0.34);">{{ r.label }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top: 40px; border: 1px solid rgba(148,163,184,0.14); background: rgba(18,24,38,0.72); border-radius: 12px; padding: 30px 28px;">
+        <h2 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: #E6EAF2; letter-spacing: 0.01em;">No indicator submitted</h2>
+        <p style="margin: 0 0 22px; font-size: 13px; line-height: 1.65; color: #A7B3C6; max-width: 620px; text-wrap: pretty;">Paste an indicator to get an aggregated reputation verdict. Each query fans out to the OSINT sources below and returns per-source findings, a normalized verdict, and the raw JSON for your ticket. Sources are queried independently and may disagree — disagreement is shown, not resolved.</p>
+        <div style="display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 26px;">
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">VirusTotal</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">AbuseIPDB</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">GreyNoise</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">AlienVault OTX</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">abuse.ch</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">urlscan.io</span>
+          <span style="flex: 0 0 auto; white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; color: #8E9BB0; border: 1px solid rgba(148,163,184,0.18); border-radius: 5px; padding: 4px 9px;">RDAP / WHOIS</span>
+        </div>
+        <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5; margin-bottom: 10px;">Sample indicators</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <sc-for list="{{ samples }}" as="s" hint-placeholder-count="5">
+            <button type="button" onClick="{{ s.onClick }}" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; background: rgba(148,163,184,0.05); border: 1px solid rgba(148,163,184,0.16); border-radius: 8px; padding: 9px 12px; cursor: pointer; text-align: left;" style-hover="background: rgba(148,163,184,0.11); border-color: rgba(148,163,184,0.32);">
+              <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; letter-spacing: 0.04em; color: #D5DEEC; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.ioc }}</span>
+              <span style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #7C8CA5;">{{ s.note }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasResult }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 34px; display: flex; flex-direction: column; gap: 26px;">
+
+        <section aria-label="Verdict" style="border: 1px solid rgba(148,163,184,0.16); background: rgba(18,24,38,0.82); border-radius: 12px; padding: 22px 24px;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+            <div style="min-width: 0; flex: 1 1 320px;">
+              <div style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5; margin-bottom: 8px;">{{ typeLabel }}</div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 19px; letter-spacing: 0.06em; color: #F2F5FA; word-break: break-all; line-height: 1.4;">{{ ioc }}</span>
+                <button type="button" onClick="{{ copyIoc }}" aria-label="Copy indicator" style="flex: 0 0 auto; background: rgba(148,163,184,0.08); border: 1px solid rgba(148,163,184,0.2); border-radius: 6px; padding: 4px 10px; color: #A7B3C6; font-size: 11px; letter-spacing: 0.05em; cursor: pointer;" style-hover="background: rgba(148,163,184,0.16); color: #E6EAF2;">{{ copyIocLabel }}</button>
+              </div>
+            </div>
+            <div style="flex: 0 0 auto;">
+              <sc-if value="{{ vMal }}" hint-placeholder-val="{{ true }}"><span style="display: inline-block; cursor: default; user-select: none; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; padding: 7px 14px; border-radius: 6px; color: #FF8286; background: rgba(242,85,90,0.12); border: 1px solid rgba(242,85,90,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #FFC2C4; background: rgba(242,85,90,0.24); border-color: rgba(242,85,90,0.85);">MALICIOUS</span></sc-if>
+              <sc-if value="{{ vSus }}" hint-placeholder-val="{{ false }}"><span style="display: inline-block; cursor: default; user-select: none; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; padding: 7px 14px; border-radius: 6px; color: #F0A62B; background: rgba(240,166,43,0.12); border: 1px solid rgba(240,166,43,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #FFD08A; background: rgba(240,166,43,0.24); border-color: rgba(240,166,43,0.85);">SUSPICIOUS</span></sc-if>
+              <sc-if value="{{ vClean }}" hint-placeholder-val="{{ false }}"><span style="display: inline-block; cursor: default; user-select: none; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; padding: 7px 14px; border-radius: 6px; color: #3ECF8E; background: rgba(62,207,142,0.12); border: 1px solid rgba(62,207,142,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #A5F0CE; background: rgba(62,207,142,0.24); border-color: rgba(62,207,142,0.85);">CLEAN</span></sc-if>
+              <sc-if value="{{ vNone }}" hint-placeholder-val="{{ false }}"><span style="display: inline-block; cursor: default; user-select: none; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; padding: 7px 14px; border-radius: 6px; color: #9FB0C6; background: rgba(148,163,184,0.10); border: 1px dashed rgba(148,163,184,0.55); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #E1E8F2; background: rgba(148,163,184,0.2); border-color: rgba(148,163,184,0.9);">NO DATA</span></sc-if>
+            </div>
+          </div>
+
+          <p style="margin: 18px 0 0; font-size: 14px; line-height: 1.6; color: #D3DBE7; max-width: 720px; text-wrap: pretty;">{{ summary }}</p>
+
+          <div style="margin-top: 20px; display: flex; align-items: center; gap: 26px; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 7px; min-width: 210px;">
+              <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5;">
+                <span>Confidence</span>
+                <span style="font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.06em; color: #C2CCDB;">{{ confidence }} / 100</span>
+              </div>
+              <div style="height: 5px; border-radius: 999px; background: rgba(148,163,184,0.14); overflow: hidden;">
+                <div style="height: 100%; border-radius: 999px; width: {{ confPct }}; background: {{ confColor }};"></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 26px; flex-wrap: wrap;">
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5;">First seen</span>
+                <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: 0.05em; color: #C2CCDB;">{{ firstSeen }}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7C8CA5;">Last seen</span>
+                <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: 0.05em; color: #C2CCDB;">{{ lastSeen }}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section aria-label="Source breakdown">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8E9BB0; font-weight: 600;">Source breakdown</h2>
+            <span style="font-size: 11.5px; color: #7C8CA5; font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em;">{{ resolvedLabel }}</span>
+          </div>
+          <sc-if value="{{ hasDissent }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom: 12px; padding: 9px 13px; border-left: 2px solid rgba(240,166,43,0.6); background: rgba(240,166,43,0.06); font-size: 12.5px; color: #D8C79C; letter-spacing: 0.01em;">{{ dissentText }}</div>
+          </sc-if>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 12px;">
+            <sc-for list="{{ sources }}" as="s" hint-placeholder-count="5">
+              <div style="border: 1px solid rgba(148,163,184,0.14); background: rgba(18,24,38,0.78); border-radius: 10px; padding: 14px 15px; display: flex; flex-direction: column; gap: 11px; min-height: 168px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #DDE4EF; letter-spacing: 0.01em;">{{ s.name }}</span>
+                  <sc-if value="{{ s.isMal }}" hint-placeholder-val="{{ false }}"><span style="cursor: default; user-select: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; padding: 3px 7px; border-radius: 4px; color: #FF8286; background: rgba(242,85,90,0.12); border: 1px solid rgba(242,85,90,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #FFC2C4; background: rgba(242,85,90,0.24); border-color: rgba(242,85,90,0.85);">MALICIOUS</span></sc-if>
+                  <sc-if value="{{ s.isSus }}" hint-placeholder-val="{{ false }}"><span style="cursor: default; user-select: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; padding: 3px 7px; border-radius: 4px; color: #F0A62B; background: rgba(240,166,43,0.12); border: 1px solid rgba(240,166,43,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #FFD08A; background: rgba(240,166,43,0.24); border-color: rgba(240,166,43,0.85);">SUSPICIOUS</span></sc-if>
+                  <sc-if value="{{ s.isClean }}" hint-placeholder-val="{{ false }}"><span style="cursor: default; user-select: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; padding: 3px 7px; border-radius: 4px; color: #3ECF8E; background: rgba(62,207,142,0.12); border: 1px solid rgba(62,207,142,0.5); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #A5F0CE; background: rgba(62,207,142,0.24); border-color: rgba(62,207,142,0.85);">CLEAN</span></sc-if>
+                  <sc-if value="{{ s.isNone }}" hint-placeholder-val="{{ false }}"><span style="cursor: default; user-select: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; padding: 3px 7px; border-radius: 4px; color: #9FB0C6; background: rgba(148,163,184,0.10); border: 1px dashed rgba(148,163,184,0.55); transition: color 120ms ease, background 120ms ease, border-color 120ms ease;" style-hover="color: #E1E8F2; background: rgba(148,163,184,0.2); border-color: rgba(148,163,184,0.9);">NO DATA</span></sc-if>
+                </div>
+
+                <sc-if value="{{ s.isPending }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 9px; padding-top: 2px;">
+                    <div class="shimmer" style="height: 13px; width: 56%; border-radius: 4px; background: linear-gradient(90deg, rgba(148,163,184,0.08) 0%, rgba(148,163,184,0.2) 50%, rgba(148,163,184,0.08) 100%); background-size: 320px 100%; animation: iocShimmer 1.25s linear infinite;"></div>
+                    <div class="shimmer" style="height: 10px; width: 88%; border-radius: 4px; background: linear-gradient(90deg, rgba(148,163,184,0.06) 0%, rgba(148,163,184,0.16) 50%, rgba(148,163,184,0.06) 100%); background-size: 320px 100%; animation: iocShimmer 1.25s linear 0.12s infinite;"></div>
+                    <div class="shimmer" style="height: 10px; width: 72%; border-radius: 4px; background: linear-gradient(90deg, rgba(148,163,184,0.06) 0%, rgba(148,163,184,0.16) 50%, rgba(148,163,184,0.06) 100%); background-size: 320px 100%; animation: iocShimmer 1.25s linear 0.24s infinite;"></div>
+                    <div class="shimmer" style="height: 10px; width: 80%; border-radius: 4px; background: linear-gradient(90deg, rgba(148,163,184,0.06) 0%, rgba(148,163,184,0.16) 50%, rgba(148,163,184,0.06) 100%); background-size: 320px 100%; animation: iocShimmer 1.25s linear 0.36s infinite;"></div>
+                    <span style="font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #6E7C92; margin-top: 2px;">Querying…</span>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ s.isFault }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; justify-content: center; border: 1px dashed rgba(148,163,184,0.32); border-radius: 8px; padding: 14px 12px; background: repeating-linear-gradient(135deg, rgba(148,163,184,0.04) 0px, rgba(148,163,184,0.04) 6px, transparent 6px, transparent 12px);">
+                    <span style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #A9B6C9;">{{ s.faultLabel }}</span>
+                    <span style="font-size: 12px; line-height: 1.5; color: #8E9BB0;">{{ s.faultText }}</span>
+                    <span style="font-size: 11px; color: #7C8CA5; letter-spacing: 0.02em;">No verdict returned — treat this source as unknown, not clean.</span>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ s.isOk }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; flex-direction: column; gap: 11px; flex: 1 1 auto;">
+                    <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; letter-spacing: 0.03em; color: #E6EAF2;">{{ s.score }}</span>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <sc-for list="{{ s.rows }}" as="f" hint-placeholder-count="3">
+                        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+                          <span style="font-size: 11px; color: #7C8CA5; letter-spacing: 0.03em; white-space: nowrap;">{{ f.k }}</span>
+                          <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; letter-spacing: 0.03em; color: #BCC7D6; text-align: right; overflow: hidden; text-overflow: ellipsis;">{{ f.v }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <a href="{{ s.link }}" target="_blank" rel="noopener noreferrer" style="margin-top: auto; font-size: 11.5px; letter-spacing: 0.03em; align-self: flex-start;">Full report ↗</a>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section aria-label="Indicator detail">
+          <h2 style="margin: 0 0 12px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8E9BB0; font-weight: 600;">{{ detailTitle }}</h2>
+          <div style="border: 1px solid rgba(148,163,184,0.14); background: rgba(18,24,38,0.78); border-radius: 10px; padding: 18px 20px;">
+            <sc-if value="{{ hasFlags }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 16px;">
+                <sc-for list="{{ flags }}" as="c" hint-placeholder-count="3">
+                  <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 9px; border-radius: 5px; color: {{ c.color }}; border: 1px solid {{ c.border }}; background: {{ c.bg }};">{{ c.label }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2px 32px;">
+              <sc-for list="{{ detailRows }}" as="d" hint-placeholder-count="6">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid rgba(148,163,184,0.09);">
+                  <span style="font-size: 11.5px; color: #8E9BB0; letter-spacing: 0.02em; white-space: nowrap;">{{ d.k }}</span>
+                  <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: 0.04em; text-align: right; word-break: break-all; color: {{ d.color }}; font-weight: {{ d.weight }};">{{ d.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasScreenshot }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top: 16px; height: 160px; border: 1px dashed rgba(148,163,184,0.28); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E7C92;">Page screenshot unavailable</div>
+            </sc-if>
+          </div>
+        </section>
+
+        <sc-if value="{{ hasAttack }}" hint-placeholder-val="{{ false }}">
+          <section aria-label="MITRE ATT&amp;CK techniques">
+            <h2 style="margin: 0 0 12px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8E9BB0; font-weight: 600;">MITRE ATT&amp;CK</h2>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <sc-for list="{{ attack }}" as="t" hint-placeholder-count="2">
+                <span style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(148,163,184,0.2); background: rgba(148,163,184,0.06); border-radius: 6px; padding: 6px 11px;">
+                  <span style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: 0.05em; color: #DDE4EF;">{{ t.id }}</span>
+                  <span style="font-size: 12px; color: #94A3B8; letter-spacing: 0.01em;">{{ t.name }}</span>
+                </span>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <section aria-label="Raw response">
+          <button type="button" onClick="{{ toggleRaw }}" aria-expanded="{{ rawOpen }}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(18,24,38,0.78); border: 1px solid rgba(148,163,184,0.14); border-radius: 10px; padding: 13px 16px; cursor: pointer; color: #C2CCDB; font-family: 'Space Grotesk', sans-serif;" style-hover="border-color: rgba(148,163,184,0.3); background: rgba(24,32,50,0.9);">
+            <span style="display: flex; align-items: center; gap: 10px;">
+              <span aria-hidden="true" style="font-size: 10px; color: #7C8CA5;">{{ rawCaret }}</span>
+              <span style="font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;">Raw normalized JSON</span>
+            </span>
+            <span style="font-size: 11.5px; color: #7C8CA5; letter-spacing: 0.03em;">{{ rawHint }}</span>
+          </button>
+          <sc-if value="{{ rawOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position: relative; margin-top: 10px; border: 1px solid rgba(148,163,184,0.14); border-radius: 10px; background: #0C111C; overflow: hidden;">
+              <button type="button" onClick="{{ copyRaw }}" style="position: absolute; top: 10px; right: 10px; background: rgba(148,163,184,0.1); border: 1px solid rgba(148,163,184,0.22); border-radius: 6px; padding: 4px 10px; color: #A7B3C6; font-size: 11px; letter-spacing: 0.05em; cursor: pointer;" style-hover="background: rgba(148,163,184,0.2); color: #E6EAF2;">{{ copyRawLabel }}</button>
+              <pre style="margin: 0; padding: 16px 18px; overflow: auto; max-height: 420px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; line-height: 1.65; letter-spacing: 0.03em; color: #A9BBD4;">{{ rawJson }}</pre>
+            </div>
+          </sc-if>
+        </section>
+
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  state = { q: "", type: "auto", manual: false, result: null, sources: [], error: "", rawOpen: false, recent: [], copied: "", ph: 0 };
+
+  PLACEHOLDERS = ["8.8.8.8", "d41d8cd98f00b204e9800998ecf8427e", "evil-domain.com"];
+
+  TYPE_LABELS = { auto: "Auto-detect", hash: "Hash", file: "File", domain: "Domain", ip: "IP Address", url: "URL", email: "Email Sender", process: "Process Name" };
+
+  SAMPLES = [
+    { ioc: "185.220.101.47", note: "Malicious · IP" },
+    { ioc: "secure-payroll-verify.com", note: "Suspicious · Domain" },
+    { ioc: "a2f0c3e91b7d4a68f5c02d9e83b14a7c6d5e0f1928374655aabbccddeeff0011", note: "Clean · Hash" },
+    { ioc: "7b1c9f4e2a8d05637fe4c1b90ad3e256", note: "No data · Hash" },
+    { ioc: "svchost.exe", note: "Malicious · Process" }
+  ];
+
+  componentDidMount() {
+    this.timers = [];
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduce) this.phTimer = setInterval(() => this.setState(s => ({ ph: (s.ph + 1) % 3 })), 3600);
+    if (!reduce) {
+      this.ping();
+      this.contactTimer = setInterval(() => this.ping(), 3000);
+    }
+  }
+  ping() {
+    const a = Math.random() * Math.PI * 2;
+    const rad = 90 + Math.random() * 380;
+    this.setState(s => ({ contact: { id: (s.contact ? s.contact.id : 0) + 1, x: 500 + Math.cos(a) * rad, y: 500 + Math.sin(a) * rad } }));
+  }
+  componentWillUnmount() { clearInterval(this.phTimer); clearInterval(this.contactTimer); (this.timers || []).forEach(clearTimeout); }
+
+  detect(v) {
+    const s = (v || "").trim();
+    if (!s) return "auto";
+    if (/^[a-f0-9]{32}$/i.test(s) || /^[a-f0-9]{40}$/i.test(s) || /^[a-f0-9]{64}$/i.test(s)) return "hash";
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(s)) return "ip";
+    if (/@/.test(s)) return "email";
+    if (/\.(exe|dll|scr|ps1|bat|vbs)$/i.test(s)) return "process";
+    if (/^[a-z]+:\/\//i.test(s) || s.indexOf("/") > -1) return "url";
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(s)) return "domain";
+    return "auto";
+  }
+  valid(t, v) {
+    const s = (v || "").trim();
+    if (t === "hash") return /^[a-f0-9]{32}$/i.test(s) || /^[a-f0-9]{40}$/i.test(s) || /^[a-f0-9]{64}$/i.test(s);
+    if (t === "ip") return /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split(".").every(n => +n <= 255);
+    if (t === "email") return /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(s);
+    if (t === "process") return /\.(exe|dll|scr|ps1|bat|vbs)$/i.test(s);
+    if (t === "domain") return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(s) && !/\s|\//.test(s);
+    if (t === "url") return /^[a-z]+:\/\//i.test(s) || /^[a-z0-9-]+(\.[a-z0-9-]+)+\//i.test(s);
+    if (t === "file") return s.length > 2;
+    return true;
+  }
+
+  onInput = (e) => {
+    const q = e.target.value;
+    this.setState(s => ({ q, error: "", type: s.manual ? s.type : this.detect(q) }));
+  };
+  onType = (e) => { const t = e.target.value; this.setState({ type: t, manual: t !== "auto", error: "" }); };
+  onSubmit = (e) => {
+    e.preventDefault();
+    this.run(this.state.q, this.state.manual ? this.state.type : "auto");
+  };
+
+  run(raw, forcedType) {
+    const val = (raw || "").trim();
+    if (!val) { this.setState({ error: "Enter an indicator to look up." }); return; }
+    if (forcedType && forcedType !== "auto" && !this.valid(forcedType, val)) {
+      this.setState({ error: '"' + val + '" is not a valid ' + this.TYPE_LABELS[forcedType] + ". Correct the value or switch the type selector back to Auto-detect." });
+      return;
+    }
+    const type = forcedType && forcedType !== "auto" ? forcedType : this.detect(val);
+    const data = this.lookup(val, type);
+    (this.timers || []).forEach(clearTimeout);
+    this.timers = [];
+    this.setState({
+      q: "", type: "auto", manual: false, error: "", rawOpen: false, copied: "",
+      result: data,
+      sources: data.sources.map(s => ({ name: s.name, status: "pending" })),
+      recent: [val].concat((this.state.recent || []).filter(x => x !== val)).slice(0, 5)
+    });
+    data.sources.forEach((s, i) => {
+      this.timers.push(setTimeout(() => {
+        this.setState(st => {
+          if (!st.result || st.result.ioc !== data.ioc) return null;
+          const arr = st.sources.slice(); arr[i] = s; return { sources: arr };
+        });
+      }, 360 + i * 300));
+    });
+  }
+
+  copy(text, key) {
+    try { navigator.clipboard.writeText(text); } catch (err) { /* noop */ }
+    this.setState({ copied: key });
+    setTimeout(() => this.setState(s => (s.copied === key ? { copied: "" } : null)), 1400);
+  }
+
+  DATA() {
+    return {
+      "185.220.101.47": {
+        ioc: "185.220.101.47", type: "ip", verdict: "malicious", confidence: 92,
+        summary: "Tor exit node with 340 abuse reports in the last 90 days; observed in SSH brute-force and C2 beaconing.",
+        first_seen: "2024-11-02", last_seen: "2026-07-26",
+        sources: [
+          { name: "VirusTotal", status: "ok", verdict: "malicious", score: "14 / 94 engines", link: "https://www.virustotal.com/gui/ip-address/185.220.101.47", fields: { malicious: 14, suspicious: 3, harmless: 61, undetected: 16, last_analysis: "2026-07-26" } },
+          { name: "AbuseIPDB", status: "ok", verdict: "malicious", score: "92% abuse confidence", link: "https://www.abuseipdb.com/check/185.220.101.47", fields: { reports: 340, distinct_reporters: 96, last_reported: "2026-07-26", usage_type: "Data Center" } },
+          { name: "GreyNoise", status: "ok", verdict: "malicious", score: "Classified: malicious", link: "https://viz.greynoise.io/ip/185.220.101.47", fields: { classification: "malicious", actor: "unknown", tags: "Tor Exit, SSH Bruteforce", last_seen: "2026-07-27" } },
+          { name: "AlienVault OTX", status: "ok", verdict: "malicious", score: "7 pulses", link: "https://otx.alienvault.com/indicator/ip/185.220.101.47", fields: { pulses: 7, families: "Sliver, Cobalt Strike", first_pulse: "2025-03-14" } },
+          { name: "abuse.ch", status: "ok", verdict: "suspicious", score: "Feodo Tracker listing", link: "https://feodotracker.abuse.ch/browse.php?search=185.220.101.47", fields: { list: "Feodo Tracker", c2_status: "offline", first_listed: "2026-06-11" } },
+          { name: "RDAP / WHOIS", status: "ok", verdict: "no_data", score: "Registration only", link: "https://rdap.db.ripe.net/ip/185.220.101.47", fields: { netname: "MK-TOR-EXIT", org: "Zwiebelfreunde e.V.", country: "DE", allocated: "2016-04-19" } }
+        ],
+        type_specific: { asn: "AS205100", org: "Zwiebelfreunde e.V.", country: "DE (Germany)", tor_exit: true, vpn: false, hosting: true, open_ports: "22, 80, 443, 9001, 9030", greynoise_class: "targeted", reverse_dns: "tor-exit-11.mk.zwiebelfreunde.de" },
+        attack_techniques: [{ id: "T1090.003", name: "Proxy: Multi-hop Proxy" }, { id: "T1071.001", name: "Application Layer Protocol: Web" }]
+      },
+      "secure-payroll-verify.com": {
+        ioc: "secure-payroll-verify.com", type: "domain", verdict: "suspicious", confidence: 61,
+        summary: "Registered 4 days ago behind privacy protection and serving a credential form. No engine detections yet — the age and payroll theme are the signal.",
+        first_seen: "2026-07-23", last_seen: "2026-07-26",
+        sources: [
+          { name: "VirusTotal", status: "ok", verdict: "clean", score: "0 / 94 engines", link: "https://www.virustotal.com/gui/domain/secure-payroll-verify.com", fields: { malicious: 0, harmless: 72, undetected: 22, categories: "unrated" } },
+          { name: "urlscan.io", status: "ok", verdict: "suspicious", score: "3 scans · login form", link: "https://urlscan.io/search/#secure-payroll-verify.com", fields: { scans: 3, verdict: "potentially malicious", form_fields: "user, password", brand_match: "none" } },
+          { name: "RDAP / WHOIS", status: "ok", verdict: "suspicious", score: "Created 4 days ago", link: "https://rdap.verisign.com/com/v1/domain/secure-payroll-verify.com", fields: { registrar: "NameSilo, LLC", created: "2026-07-23", registrant: "REDACTED", privacy: "enabled" } },
+          { name: "AlienVault OTX", status: "ok", verdict: "no_data", score: "0 pulses", link: "https://otx.alienvault.com/indicator/domain/secure-payroll-verify.com", fields: { pulses: 0, related_ips: 2 } },
+          { name: "abuse.ch", status: "error", error: "Connection timed out after 8s (urlhaus-api.abuse.ch)" },
+          { name: "GreyNoise", status: "rate_limited", error: "Community API quota exhausted · resets in 22 min" }
+        ],
+        type_specific: { registrar: "NameSilo, LLC", created: "2026-07-23", age: "4 days", expires: "2027-07-23", nameservers: "ns1.dnsowl.com, ns2.dnsowl.com", resolved_ips: "172.67.148.22, 104.21.35.9", tls_issuer: "Let's Encrypt R11", tls_issued: "2026-07-23", mx: "none" },
+        attack_techniques: [{ id: "T1583.001", name: "Acquire Infrastructure: Domains" }, { id: "T1566.002", name: "Phishing: Spearphishing Link" }]
+      },
+      "a2f0c3e91b7d4a68f5c02d9e83b14a7c6d5e0f1928374655aabbccddeeff0011": {
+        ioc: "a2f0c3e91b7d4a68f5c02d9e83b14a7c6d5e0f1928374655aabbccddeeff0011", type: "hash", verdict: "clean", confidence: 96,
+        summary: "Authenticode-signed Microsoft Windows binary (notepad.exe 10.0.26100.1). 0 of 94 engines flag it; widely distributed since June 2024.",
+        first_seen: "2024-06-02", last_seen: "2026-07-25",
+        sources: [
+          { name: "VirusTotal", status: "ok", verdict: "clean", score: "0 / 94 engines", link: "https://www.virustotal.com/gui/file/a2f0c3e91b7d4a68f5c02d9e83b14a7c6d5e0f1928374655aabbccddeeff0011", fields: { malicious: 0, undetected: 94, reputation: 412, submissions: 1874 } },
+          { name: "abuse.ch", status: "ok", verdict: "no_data", score: "Not in MalwareBazaar", link: "https://bazaar.abuse.ch/browse.php?search=sha256%3Aa2f0c3e9", fields: { samples: 0, signatures: "none" } },
+          { name: "AlienVault OTX", status: "ok", verdict: "clean", score: "0 pulses", link: "https://otx.alienvault.com/indicator/file/a2f0c3e91b7d4a68f5c02d9e83b14a7c6d5e0f1928374655aabbccddeeff0011", fields: { pulses: 0, whitelisted: "yes (Microsoft)" } }
+        ],
+        type_specific: { file_type: "PE32+ executable (GUI) x86-64", size: "361 KB (369,664 bytes)", names: "notepad.exe", family: "n/a", signature: "Valid · Microsoft Windows Publisher", signed: "2024-05-18", detections: "0 / 94", first_submission: "2024-06-02", imphash: "9f3a4c1d7b02e5f8a6c4d3b1e0f29a75" },
+        attack_techniques: []
+      },
+      "7b1c9f4e2a8d05637fe4c1b90ad3e256": {
+        ioc: "7b1c9f4e2a8d05637fe4c1b90ad3e256", type: "hash", verdict: "no_data", confidence: 0,
+        summary: "No queried source has ever observed this hash. This is an absence of evidence, not a clean verdict — treat as unknown and escalate to sandbox detonation.",
+        first_seen: null, last_seen: null,
+        sources: [
+          { name: "VirusTotal", status: "ok", verdict: "no_data", score: "Not found", link: "https://www.virustotal.com/gui/search/7b1c9f4e2a8d05637fe4c1b90ad3e256", fields: { http_status: 404, submissions: 0 } },
+          { name: "abuse.ch", status: "ok", verdict: "no_data", score: "Not in MalwareBazaar", link: "https://bazaar.abuse.ch/browse.php?search=md5%3A7b1c9f4e2a8d05637fe4c1b90ad3e256", fields: { samples: 0 } },
+          { name: "AlienVault OTX", status: "ok", verdict: "no_data", score: "0 pulses", link: "https://otx.alienvault.com/indicator/file/7b1c9f4e2a8d05637fe4c1b90ad3e256", fields: { pulses: 0, whitelisted: "no" } }
+        ],
+        type_specific: { file_type: "unknown — no sample available", size: "unknown", names: "unknown", family: "unknown", signature: "unknown", detections: "no analysis on record", first_submission: "never submitted", imphash: "unknown" },
+        attack_techniques: []
+      },
+      "svchost.exe": {
+        ioc: "svchost.exe", type: "process", verdict: "malicious", confidence: 88,
+        summary: "svchost.exe executing from C:\\Users\\Public\\ with winword.exe as parent. Path and parent both wrong for a system binary — confirmed masquerading.",
+        first_seen: "2026-07-21", last_seen: "2026-07-27",
+        sources: [
+          { name: "VirusTotal", status: "ok", verdict: "malicious", score: "23 / 94 engines", link: "https://www.virustotal.com/gui/search/svchost.exe", fields: { matched_sample: "b1e2…9f4c", malicious: 23, family: "Remcos", last_analysis: "2026-07-27" } },
+          { name: "abuse.ch", status: "ok", verdict: "malicious", score: "MalwareBazaar: Remcos", link: "https://bazaar.abuse.ch/browse/signature/Remcos/", fields: { samples: 61, signature: "Remcos", first_seen: "2026-05-30" } },
+          { name: "AlienVault OTX", status: "ok", verdict: "malicious", score: "4 pulses", link: "https://otx.alienvault.com/browse/global/pulses?q=svchost%20masquerade", fields: { pulses: 4, families: "Remcos, AgentTesla", first_pulse: "2026-04-08" } },
+          { name: "GreyNoise", status: "rate_limited", error: "Community API quota exhausted · resets in 22 min" }
+        ],
+        type_specific: { expected_path: "C:\\Windows\\System32\\svchost.exe", observed_path: "C:\\Users\\Public\\svchost.exe", expected_parent: "services.exe", observed_parent: "winword.exe", signature: "Unsigned", lolbas: "Not a LOLBAS entry — genuine svchost.exe never runs outside System32", masquerading: "Confirmed — path and parent both mismatch", cmdline: "svchost.exe -k netsvcs -p" },
+        attack_techniques: [{ id: "T1036.005", name: "Masquerading: Match Legitimate Name" }, { id: "T1055", name: "Process Injection" }, { id: "T1204.002", name: "User Execution: Malicious File" }]
+      }
+    };
+  }
+
+  lookup(val, type) {
+    const hit = this.DATA()[val.toLowerCase()];
+    if (hit) return hit;
+    const names = type === "ip" ? ["VirusTotal", "AbuseIPDB", "GreyNoise", "AlienVault OTX", "RDAP / WHOIS"]
+      : type === "domain" || type === "url" ? ["VirusTotal", "urlscan.io", "AlienVault OTX", "RDAP / WHOIS"]
+      : ["VirusTotal", "abuse.ch", "AlienVault OTX"];
+    return {
+      ioc: val, type: type === "auto" ? "unknown" : type, verdict: "no_data", confidence: 0,
+      summary: "No queried source has ever observed this indicator. Absence of data is not a clean verdict — treat as unknown.",
+      first_seen: null, last_seen: null,
+      sources: names.map(n => ({ name: n, status: "ok", verdict: "no_data", score: "Not found", link: "https://www.virustotal.com/gui/search/" + encodeURIComponent(val), fields: { records: 0 } })),
+      type_specific: { queried: val, records: "none across " + names.length + " sources", recommendation: "Escalate for sandbox detonation or manual analysis" },
+      attack_techniques: []
+    };
+  }
+
+  LABELS = {
+    asn: "ASN", org: "Organisation", country: "Country", tor_exit: "Tor exit node", vpn: "VPN / proxy", hosting: "Hosting provider", open_ports: "Open ports", greynoise_class: "GreyNoise class", reverse_dns: "Reverse DNS",
+    registrar: "Registrar", created: "Created", age: "Domain age", expires: "Expires", nameservers: "Nameservers", resolved_ips: "Resolved IPs", tls_issuer: "TLS issuer", tls_issued: "TLS issued", mx: "MX records",
+    file_type: "File type", size: "Size", names: "Known filenames", family: "Malware family", signature: "Signing status", signed: "Signed", detections: "AV detection ratio", first_submission: "First submission", imphash: "Imphash",
+    expected_path: "Expected path", observed_path: "Observed path", expected_parent: "Expected parent", observed_parent: "Observed parent", lolbas: "LOLBAS", masquerading: "Masquerading verdict", cmdline: "Command line",
+    queried: "Queried value", records: "Records found", recommendation: "Recommended action",
+    spf: "SPF", dkim: "DKIM", dmarc: "DMARC", domain_age: "Sender domain age", lookalike: "Lookalike domain"
+  };
+
+  DETAIL_TITLES = { ip: "IP detail", domain: "Domain detail", url: "URL detail", hash: "File detail", file: "File detail", process: "Process detail", email: "Sender authentication", unknown: "Indicator detail" };
+
+  rowTone(key, value, type) {
+    const v = String(value).toLowerCase();
+    if (key === "tor_exit" || key === "vpn" || key === "hosting") return v === "true" ? (key === "hosting" ? "warn" : "alert") : "mute";
+    if (key === "age") return "alert";
+    if (key === "created" && type === "domain") return "warn";
+    if (key === "observed_path" || key === "observed_parent" || key === "masquerading") return "alert";
+    if (key === "signature") return v.indexOf("valid") === 0 ? "ok" : (v.indexOf("unsigned") > -1 ? "alert" : "mute");
+    if (key === "detections") return v.indexOf("0 /") === 0 ? "ok" : (v.indexOf("no analysis") > -1 ? "mute" : "alert");
+    if (key === "greynoise_class") return "warn";
+    return "";
+  }
+  toneColor(t) {
+    return t === "alert" ? "#FF8286" : t === "warn" ? "#F0A62B" : t === "ok" ? "#3ECF8E" : t === "mute" ? "#8E9BB0" : "#D5DEEC";
+  }
+
+  renderVals() {
+    const st = this.state;
+    const r = st.result;
+    const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const c = st.contact;
+    const contact = c ? React.createElement("g", { key: c.id },
+      React.createElement("circle", { cx: c.x, cy: c.y, r: 4, fill: "none", stroke: "#F2555A", strokeWidth: 1.5, style: { animation: "contactRing 3s ease-out 1 both" } }),
+      React.createElement("circle", { cx: c.x, cy: c.y, r: 3.4, fill: "#F2555A", style: { animation: "contactDot 3s linear 1 both" } })
+    ) : null;
+
+    const base = {
+      contact,
+      q: st.q,
+      type: st.type,
+      placeholder: reduce ? "8.8.8.8  ·  d41d8cd98f00b204e9800998ecf8427e  ·  evil-domain.com" : this.PLACEHOLDERS[st.ph],
+      onInput: this.onInput,
+      onType: this.onType,
+      onSubmit: this.onSubmit,
+      error: st.error,
+      inferNote: !st.q.trim() ? false : (st.manual ? "Type locked to " + this.TYPE_LABELS[st.type] + " — switch to Auto-detect to infer." : (st.type !== "auto" ? "Auto-detected as " + this.TYPE_LABELS[st.type] + " — override with the selector if wrong." : "Shape not recognised — pick a type from the selector.")),
+      hasRecent: (st.recent || []).length > 0,
+      recent: (st.recent || []).map(v => ({ label: v.length > 30 ? v.slice(0, 14) + "…" + v.slice(-8) : v, onClick: () => this.run(v, "auto") })),
+      samples: this.SAMPLES.map(s => ({ ioc: s.ioc.length > 30 ? s.ioc.slice(0, 16) + "…" + s.ioc.slice(-8) : s.ioc, note: s.note, onClick: () => this.run(s.ioc, "auto") })),
+      isEmpty: !r,
+      hasResult: !!r
+    };
+    if (!r) return base;
+
+    const sources = st.sources.map(s => {
+      const ok = s.status === "ok";
+      return {
+        name: s.name,
+        isPending: s.status === "pending",
+        isOk: ok,
+        isFault: s.status === "error" || s.status === "rate_limited",
+        faultLabel: s.status === "rate_limited" ? "Rate limited" : "Source unreachable",
+        faultText: s.error || "",
+        isMal: ok && s.verdict === "malicious",
+        isSus: ok && s.verdict === "suspicious",
+        isClean: ok && s.verdict === "clean",
+        isNone: ok && s.verdict === "no_data",
+        score: s.score || "",
+        link: s.link || "#",
+        rows: ok ? Object.keys(s.fields || {}).map(k => ({ k: k.replace(/_/g, " "), v: String(s.fields[k]) })) : []
+      };
+    });
+    const resolved = st.sources.filter(s => s.status !== "pending").length;
+    const verdicts = st.sources.filter(s => s.status === "ok").map(s => s.verdict);
+    const distinct = verdicts.filter((v, i) => verdicts.indexOf(v) === i);
+    const hasDissent = resolved === st.sources.length && distinct.length > 1;
+
+    const ts = r.type_specific || {};
+    const detailRows = Object.keys(ts).map(k => {
+      const raw = ts[k];
+      const tone = this.rowTone(k, raw, r.type);
+      return {
+        k: this.LABELS[k] || k.replace(/_/g, " "),
+        v: typeof raw === "boolean" ? (raw ? "Yes" : "No") : String(raw),
+        color: this.toneColor(tone),
+        weight: tone === "alert" || tone === "warn" ? "600" : "400"
+      };
+    });
+
+    const flags = [];
+    if (r.type === "ip") {
+      if (ts.tor_exit) flags.push({ label: "Tor exit", color: "#FF8286", border: "rgba(242,85,90,0.5)", bg: "rgba(242,85,90,0.12)" });
+      if (ts.hosting) flags.push({ label: "Hosting / datacentre", color: "#F0A62B", border: "rgba(240,166,43,0.45)", bg: "rgba(240,166,43,0.1)" });
+      if (!ts.vpn) flags.push({ label: "Not a known VPN", color: "#9FB0C6", border: "rgba(148,163,184,0.35)", bg: "rgba(148,163,184,0.08)" });
+      if (ts.greynoise_class) flags.push({ label: "GreyNoise: " + ts.greynoise_class, color: "#F0A62B", border: "rgba(240,166,43,0.45)", bg: "rgba(240,166,43,0.1)" });
+    }
+    if (r.type === "domain" && ts.age) flags.push({ label: "Registered " + ts.age + " ago", color: "#FF8286", border: "rgba(242,85,90,0.5)", bg: "rgba(242,85,90,0.12)" });
+    if (r.type === "process" && ts.masquerading) flags.push({ label: "Masquerading", color: "#FF8286", border: "rgba(242,85,90,0.5)", bg: "rgba(242,85,90,0.12)" });
+    if (r.verdict === "no_data") flags.push({ label: "Unknown — not clean", color: "#9FB0C6", border: "rgba(148,163,184,0.55)", bg: "rgba(148,163,184,0.1)" });
+
+    const rawObj = {
+      ioc: r.ioc, type: r.type, verdict: r.verdict, confidence: r.confidence, summary: r.summary,
+      first_seen: r.first_seen, last_seen: r.last_seen,
+      sources: st.sources.map(s => s.status === "pending" ? { name: s.name, status: "pending" } : s),
+      type_specific: ts,
+      attack_techniques: (r.attack_techniques || []).map(t => t.id)
+    };
+
+    return Object.assign(base, {
+      ioc: r.ioc,
+      typeLabel: this.TYPE_LABELS[r.type] || "Indicator",
+      summary: r.summary,
+      confidence: r.confidence,
+      confPct: r.confidence + "%",
+      confColor: r.verdict === "malicious" ? "#F2555A" : r.verdict === "suspicious" ? "#F0A62B" : r.verdict === "clean" ? "#3ECF8E" : "#64748B",
+      firstSeen: r.first_seen || "— never observed",
+      lastSeen: r.last_seen || "— never observed",
+      vMal: r.verdict === "malicious", vSus: r.verdict === "suspicious", vClean: r.verdict === "clean", vNone: r.verdict === "no_data",
+      copyIoc: () => this.copy(r.ioc, "ioc"),
+      copyIocLabel: st.copied === "ioc" ? "Copied" : "Copy",
+      sources,
+      resolvedLabel: resolved + " / " + st.sources.length + " sources resolved",
+      hasDissent,
+      dissentText: "Sources disagree: " + distinct.map(v => v.replace("_", " ")).join(" / ") + ". The aggregate verdict takes the most severe finding — review each source before closing.",
+      detailTitle: this.DETAIL_TITLES[r.type] || "Indicator detail",
+      detailRows,
+      flags, hasFlags: flags.length > 0,
+      hasScreenshot: r.type === "url",
+      attack: r.attack_techniques || [],
+      hasAttack: (r.attack_techniques || []).length > 0,
+      rawOpen: st.rawOpen,
+      rawCaret: st.rawOpen ? "▼" : "▶",
+      rawHint: st.rawOpen ? "Collapse" : "Expand for ticket paste",
+      toggleRaw: () => this.setState(s => ({ rawOpen: !s.rawOpen })),
+      rawJson: JSON.stringify(rawObj, null, 2),
+      copyRaw: () => this.copy(JSON.stringify(rawObj, null, 2), "raw"),
+      copyRawLabel: st.copied === "raw" ? "Copied" : "Copy JSON"
+    });
+  }
+}
+
+</script>
+</body>
+</html>

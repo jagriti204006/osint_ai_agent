@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IOC Reputation Lookup</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div class="radar-wrap" aria-hidden="true">
+  <svg id="radar" viewBox="0 0 1000 1000">
+    <defs>
+      <radialGradient id="sweepGrad" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0%" stop-color="#C9A227" stop-opacity="0.9" />
+        <stop offset="55%" stop-color="#C9A227" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="#C9A227" stop-opacity="0" />
+      </radialGradient>
+    </defs>
+    <g class="rings">
+      <circle cx="500" cy="500" r="120" />
+      <circle cx="500" cy="500" r="230" />
+      <circle cx="500" cy="500" r="340" />
+      <circle cx="500" cy="500" r="450" />
+    </g>
+    <g class="ticks">
+      <line x1="500" y1="50" x2="500" y2="76" />
+      <line x1="950" y1="500" x2="924" y2="500" />
+      <line x1="500" y1="950" x2="500" y2="924" />
+      <line x1="50" y1="500" x2="76" y2="500" />
+      <line x1="818" y1="182" x2="800" y2="200" />
+      <line x1="818" y1="818" x2="800" y2="800" />
+      <line x1="182" y1="818" x2="200" y2="800" />
+      <line x1="182" y1="182" x2="200" y2="200" />
+    </g>
+    <g class="dashed">
+      <circle cx="500" cy="500" r="500" />
+      <circle cx="500" cy="500" r="285" />
+      <circle cx="500" cy="500" r="395" />
+    </g>
+    <g class="spokes">
+      <line x1="50" y1="500" x2="950" y2="500" />
+      <line x1="500" y1="50" x2="500" y2="950" />
+      <line x1="182" y1="182" x2="818" y2="818" />
+      <line x1="818" y1="182" x2="182" y2="818" />
+      <line x1="275" y1="110" x2="725" y2="890" />
+      <line x1="725" y1="110" x2="275" y2="890" />
+      <line x1="110" y1="275" x2="890" y2="725" />
+      <line x1="110" y1="725" x2="890" y2="275" />
+    </g>
+    <g id="radar-sweep">
+      <path d="M500,500 L500,50 A450,450 0 0 1 862.4,318.6 Z" fill="url(#sweepGrad)" />
+      <line x1="500" y1="500" x2="500" y2="50" class="sweep-arm" />
+    </g>
+    <g class="blips">
+      <circle cx="626" cy="320" r="3" />
+      <circle cx="857" cy="630" r="3" />
+      <circle cx="548" cy="632" r="3" />
+      <circle cx="253" cy="852" r="3" />
+      <circle cx="218" cy="397" r="3" />
+      <circle cx="378" cy="355" r="3" />
+    </g>
+  </svg>
+  <svg id="radar-contacts" viewBox="0 0 1000 1000"></svg>
+</div>
+
+<div class="shell">
+
+  <header class="head">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <line x1="15.4" y1="15.4" x2="20.5" y2="20.5" />
+    </svg>
+    <div class="head-text">
+      <h1>IOC Reputation Lookup</h1>
+      <p>Multi-source indicator triage · aggregated verdicts for hashes, IPs, domains, URLs, senders and processes</p>
+    </div>
+  </header>
+
+  <form id="lookup-form" autocomplete="off">
+    <input id="ioc-input" type="text" spellcheck="false" autocomplete="off"
+           aria-label="Indicator of compromise" placeholder="8.8.8.8">
+    <div class="select-wrap">
+      <select id="ioc-type" aria-label="Indicator type">
+        <option value="auto">Auto-detect</option>
+        <option value="hash">Hash</option>
+        <option value="domain">Domain</option>
+        <option value="ip">IP Address</option>
+        <option value="url">URL</option>
+        <option value="email">Email Sender</option>
+        <option value="process">Process Name</option>
+      </select>
+      <span class="caret" aria-hidden="true">▼</span>
+    </div>
+    <button type="submit" id="find-btn">Find</button>
+  </form>
+
+  <div id="infer-note" class="infer-note" hidden></div>
+  <div id="error-box" class="error-box" role="alert" hidden></div>
+  <div id="recent-row" class="recent-row" hidden></div>
+
+  <div id="empty-state" class="panel empty">
+    <h2>No indicator submitted</h2>
+    <p>Paste an indicator to get an aggregated reputation verdict. Each query fans out to the OSINT sources below and returns per-source findings, a normalized verdict, and the raw JSON for your ticket. Sources are queried independently and may disagree — disagreement is shown, not resolved.</p>
+    <div id="source-chips" class="source-chips"></div>
+    <div class="section-label">Try</div>
+    <div id="samples" class="samples"></div>
+  </div>
+
+  <div id="results" class="results" hidden></div>
+
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
